@@ -1,0 +1,977 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>MAB2114 Interactive Study Suite</title>
+<style>
+  :root {
+    --primary: #C00000;
+    --primary-light: #fbeae8;
+    --dark: #222;
+    --gray: #666;
+    --border: #ddd;
+    --bg: #f8f9fa;
+    --white: #ffffff;
+    --success: #28a745;
+    --danger: #dc3545;
+  }
+  * { box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+  body { margin: 0; padding: 20px; background: var(--bg); color: var(--dark); line-height: 1.5; }
+  .container { max-width: 900px; margin: 0 auto; background: var(--white); border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); overflow: hidden; }
+  .header { background: var(--primary); color: white; padding: 24px; text-align: center; }
+  .header h1 { margin: 0; font-size: 1.8rem; letter-spacing: -0.5px; }
+  .header p { margin: 6px 0 0 0; opacity: 0.9; font-size: 0.95rem; }
+  
+  /* Tabs */
+  .nav-tabs { display: flex; background: #eee; border-bottom: 2px solid var(--border); overflow-x: auto; }
+  .tab-btn { flex: 1; padding: 14px 16px; border: none; background: none; font-weight: 600; font-size: 0.95rem; cursor: pointer; color: var(--gray); text-align: center; white-space: nowrap; border-bottom: 3px solid transparent; transition: all 0.2s; }
+  .tab-btn.active { color: var(--primary); background: var(--white); border-bottom-color: var(--primary); }
+  
+  .content { padding: 24px; display: none; }
+  .content.active { display: block; }
+  
+  .section-title { font-size: 1.25rem; font-weight: 700; color: var(--primary); margin: 0 0 16px 0; border-bottom: 1px solid var(--border); padding-bottom: 8px; }
+  
+  /* Quiz Styles */
+  .q-card { border: 1px solid var(--border); border-radius: 8px; padding: 18px; margin-bottom: 18px; background: #fff; }
+  .q-num { font-weight: 700; color: var(--primary); font-size: 0.85rem; text-transform: uppercase; margin-bottom: 6px; }
+  .q-text { font-size: 1rem; font-weight: 600; margin-bottom: 12px; }
+  .options { display: flex; flex-direction: column; gap: 8px; }
+  .option-label { display: flex; align-items: flex-start; gap: 10px; padding: 10px 14px; border: 1px solid var(--border); border-radius: 6px; cursor: pointer; font-size: 0.92rem; transition: background 0.15s; }
+  .option-label:hover { background: var(--primary-light); }
+  .option-label input { margin-top: 3px; }
+  .feedback { margin-top: 10px; font-size: 0.88rem; font-weight: 600; padding: 8px 12px; border-radius: 6px; display: none; }
+  .feedback.show { display: block; }
+  .feedback.correct { background: #d4edda; color: var(--success); border: 1px solid #c3e6cb; }
+  .feedback.incorrect { background: #f8d7da; color: var(--danger); border: 1px solid #f5c6cb; }
+
+  /* Fill-in-the-blank input */
+  .fib-input { padding: 8px 12px; border: 1px solid var(--border); border-radius: 6px; font-size: 0.95rem; width: 60%; margin-right: 10px; }
+  .fib-btn { padding: 8px 16px; background: var(--primary); color: #fff; border: none; border-radius: 6px; font-weight: 600; cursor: pointer; }
+  
+  /* Flashcard Widget */
+  .flashcard-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 16px; margin-top: 16px; }
+  .flashcard { perspective: 1000px; height: 210px; cursor: pointer; }
+  .flashcard-inner { position: relative; width: 100%; height: 100%; text-align: center; transition: transform 0.6s; transform-style: preserve-3d; border-radius: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.08); }
+  .flashcard.flipped .flashcard-inner { transform: rotateY(180deg); }
+  .flashcard-front, .flashcard-back { position: absolute; width: 100%; height: 100%; backface-visibility: hidden; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 18px; border-radius: 10px; border: 1px solid var(--border); }
+  .flashcard-front { background: white; color: var(--dark); }
+  .flashcard-back { background: var(--primary); color: white; transform: rotateY(180deg); }
+  .flash-tag { font-size: 0.75rem; text-transform: uppercase; font-weight: 700; color: var(--primary); margin-bottom: 8px; letter-spacing: 0.5px; }
+  .flash-term { font-size: 1.25rem; font-weight: 700; }
+  .flash-click { font-size: 0.75rem; color: var(--gray); margin-top: 12px; opacity: 0.8; }
+  .flashcard-back .flash-click { color: #ffe5e5; }
+  
+  .score-box { background: var(--primary-light); border: 1px solid var(--primary); padding: 16px; border-radius: 8px; text-align: center; margin-bottom: 20px; font-weight: 600; }
+  .action-bar { text-align: center; margin-top: 24px; }
+  .action-btn { padding: 10px 24px; background: var(--primary); color: #fff; border: none; border-radius: 6px; font-size: 1rem; font-weight: 600; cursor: pointer; }
+</style>
+</head>
+<body>
+
+<div class="container">
+  <div class="header">
+    <h1>MAB2114 Interactive Study Suite</h1>
+    <p>60 Verified Items: Multiple Choice, Flashcards, & Fill-in-the-Blank</p>
+  </div>
+
+  <div class="nav-tabs">
+    <button class="tab-btn active" onclick="switchTab('m1-quiz')">Module 1 (MCQ & FIB)</button>
+    <button class="tab-btn" onclick="switchTab('m1-flash')">Module 1 Flashcards</button>
+    <button class="tab-btn" onclick="switchTab('m2-quiz')">Module 2 (MCQ & FIB)</button>
+    <button class="tab-btn" onclick="switchTab('m2-flash')">Module 2 Flashcards</button>
+    <button class="tab-btn" onclick="switchTab('m3-quiz')">Module 3 (MCQ & FIB)</button>
+    <button class="tab-btn" onclick="switchTab('m3-flash')">Module 3 Flashcards</button>
+  </div>
+
+  <!-- MODULE 1 QUIZ -->
+  <div id="m1-quiz" class="content active">
+    <div class="section-title">Module 1: Multiple Choice Questions (10 items)</div>
+    
+    <!-- M1-Q1 -->
+    <div class="q-card" data-ans="B">
+      <div class="q-num">Question 1 (Module 1)</div>
+      <div class="q-text">Which factor of production encompasses machinery, tools, and facilities, with the explicit qualification that money is not always considered an intrinsic factor by itself?</div>
+      <div class="options">
+        <label class="option-label"><input type="radio" name="m1_1" value="A"> A) Land</label>
+        <label class="option-label"><input type="radio" name="m1_1" value="B"> B) Capital</label>
+        <label class="option-label"><input type="radio" name="m1_1" value="C"> C) Knowledge</label>
+        <label class="option-label"><input type="radio" name="m1_1" value="D"> D) Entrepreneurship</label>
+      </div>
+      <div class="feedback"></div>
+    </div>
+
+    <!-- M1-Q2 -->
+    <div class="q-card" data-ans="B">
+      <div class="q-num">Question 2 (Module 1)</div>
+      <div class="q-text">According to standard business definitions, which factor of production has revolutionized modern commerce by accelerating responsiveness to consumer wants?</div>
+      <div class="options">
+        <label class="option-label"><input type="radio" name="m1_2" value="A"> A) Real property</label>
+        <label class="option-label"><input type="radio" name="m1_2" value="B"> B) Knowledge</label>
+        <label class="option-label"><input type="radio" name="m1_2" value="C"> C) Specialized manual labor</label>
+        <label class="option-label"><input type="radio" name="m1_2" value="D"> D) Natural resources</label>
+      </div>
+      <div class="feedback"></div>
+    </div>
+
+    <!-- M1-Q3 -->
+    <div class="q-card" data-ans="C">
+      <div class="q-num">Question 3 (Module 1)</div>
+      <div class="q-text">What is the correct sequence of steps when organizing an enterprise according to classical management theory?</div>
+      <div class="options">
+        <label class="option-label"><input type="radio" name="m1_3" value="A"> A) Departmentalization → Job specialization → Division of labor → Org chart</label>
+        <label class="option-label"><input type="radio" name="m1_3" value="B"> B) Org chart → Division of labor → Departmentalization → Specialization</label>
+        <label class="option-label"><input type="radio" name="m1_3" value="C"> C) Division of labor → Job specialization → Departmentalization → Assigning authority → Org chart</label>
+        <label class="option-label"><input type="radio" name="m1_3" value="D"> D) Delegation → Departmentalization → Specialization → Goal setting</label>
+      </div>
+      <div class="feedback"></div>
+    </div>
+
+    <!-- M1-Q4 -->
+    <div class="q-card" data-ans="D">
+      <div class="q-num">Question 4 (Module 1)</div>
+      <div class="q-text">In Alexander Osterwalder's framework, what constitutes the two-part value model of a business?</div>
+      <div class="options">
+        <label class="option-label"><input type="radio" name="m1_4" value="A"> A) Profit vs. Loss</label>
+        <label class="option-label"><input type="radio" name="m1_4" value="B"> B) Internal environment vs. External environment</label>
+        <label class="option-label"><input type="radio" name="m1_4" value="C"> C) Standard of living vs. Quality of life</label>
+        <label class="option-label"><input type="radio" name="m1_4" value="D"> D) Value Creation (making) vs. Value Delivery (selling)</label>
+      </div>
+      <div class="feedback"></div>
+    </div>
+
+    <!-- M1-Q5 -->
+    <div class="q-card" data-ans="B">
+      <div class="q-num">Question 5 (Module 1)</div>
+      <div class="q-text">What is the core distinction between "Standard of Living" and "Quality of Life"?</div>
+      <div class="options">
+        <label class="option-label"><input type="radio" name="m1_5" value="A"> A) Standard of living is societal health; quality of life is consumer purchasing power.</label>
+        <label class="option-label"><input type="radio" name="m1_5" value="B"> B) Standard of living is purchasing power of goods/services; quality of life is general societal well-being.</label>
+        <label class="option-label"><input type="radio" name="m1_5" value="C"> C) Standard of living applies to entrepreneurs; quality of life applies to corporate employees.</label>
+        <label class="option-label"><input type="radio" name="m1_5" value="D"> D) Standard of living is non-monetary; quality of life is purely financial revenue.</label>
+      </div>
+      <div class="feedback"></div>
+    </div>
+
+    <!-- M1-Q6 -->
+    <div class="q-card" data-ans="A">
+      <div class="q-num">Question 6 (Module 1)</div>
+      <div class="q-text">Which of the following is considered an element of the controllable Internal Environment?</div>
+      <div class="options">
+        <label class="option-label"><input type="radio" name="m1_6" value="A"> A) Corporate culture and leadership styles</label>
+        <label class="option-label"><input type="radio" name="m1_6" value="B"> B) Regulatory actions and interest groups</label>
+        <label class="option-label"><input type="radio" name="m1_6" value="C"> C) Demographic shifts in consumer populations</label>
+        <label class="option-label"><input type="radio" name="m1_6" value="D"> D) Technological disruptions from competitors</label>
+      </div>
+      <div class="feedback"></div>
+    </div>
+
+    <!-- M1-Q7 -->
+    <div class="q-card" data-ans="C">
+      <div class="q-num">Question 7 (Module 1)</div>
+      <div class="q-text">What are the three primary participants in a business entity according to the readings?</div>
+      <div class="options">
+        <label class="option-label"><input type="radio" name="m1_7" value="A"> A) Suppliers, Regulators, and Competitors</label>
+        <label class="option-label"><input type="radio" name="m1_7" value="B"> B) Creditors, Bankers, and Government</label>
+        <label class="option-label"><input type="radio" name="m1_7" value="C"> C) Owners, Employees, and Customers</label>
+        <label class="option-label"><input type="radio" name="m1_7" value="D"> D) Innovators, Marketers, and Distributors</label>
+      </div>
+      <div class="feedback"></div>
+    </div>
+
+    <!-- M1-Q8 -->
+    <div class="q-card" data-ans="A">
+      <div class="q-num">Question 8 (Module 1)</div>
+      <div class="q-text">How do large conglomerates and private enterprises primarily fund civic infrastructure according to the text?</div>
+      <div class="options">
+        <label class="option-label"><input type="radio" name="m1_8" value="A"> A) Through corporate and employee tax payments that support public services</label>
+        <label class="option-label"><input type="radio" name="m1_8" value="B"> B) By completely replacing public government utilities</label>
+        <label class="option-label"><input type="radio" name="m1_8" value="C"> C) Exclusively through philanthropic non-profit donations</label>
+        <label class="option-label"><input type="radio" name="m1_8" value="D"> D) By eliminating the need for national public hospitals and schools</label>
+      </div>
+      <div class="feedback"></div>
+    </div>
+
+    <!-- M1-Q9 -->
+    <div class="q-card" data-ans="C">
+      <div class="q-num">Question 9 (Module 1)</div>
+      <div class="q-text">What is the direct trade-off individuals accept when choosing corporate employment over entrepreneurship?</div>
+      <div class="options">
+        <label class="option-label"><input type="radio" name="m1_9" value="A"> A) Greater business risk in exchange for flexible working hours</label>
+        <label class="option-label"><input type="radio" name="m1_9" value="B"> B) Full autonomy in decision-making in exchange for no benefits</label>
+        <label class="option-label"><input type="radio" name="m1_9" value="C"> C) Stable wages and benefits in exchange for lower autonomy and financial upside</label>
+        <label class="option-label"><input type="radio" name="m1_9" value="D"> D) Absolute ownership of company IP in exchange for lower starting wages</label>
+      </div>
+      <div class="feedback"></div>
+    </div>
+
+    <!-- M1-Q10 -->
+    <div class="q-card" data-ans="B">
+      <div class="q-num">Question 10 (Module 1)</div>
+      <div class="q-text">In the Two-Part Value Model, which set of activities belongs strictly to Value Creation?</div>
+      <div class="options">
+        <label class="option-label"><input type="radio" name="m1_10" value="A"> A) Marketing, sales transacting, and customer service</label>
+        <label class="option-label"><input type="radio" name="m1_10" value="B"> B) R&D, product design, procurement, and manufacturing</label>
+        <label class="option-label"><input type="radio" name="m1_10" value="C"> C) Retail distribution, warehousing, and advertising</label>
+        <label class="option-label"><input type="radio" name="m1_10" value="D"> D) Brand promotion and customer acquisition</label>
+      </div>
+      <div class="feedback"></div>
+    </div>
+
+    <div class="section-title" style="margin-top: 24px;">Module 1: Fill-in-the-Blank Questions (5 items)</div>
+    
+    <!-- M1-FIB1 -->
+    <div class="q-card">
+      <div class="q-num">Question 11 (Fill-in-the-Blank)</div>
+      <div class="q-text">An <span style="color:var(--primary); font-weight:700;">________</span> is a person who risks time and money to start and manage a business.</div>
+      <div>
+        <input type="text" class="fib-input" id="m1_fib1" placeholder="Type key term...">
+        <button class="fib-btn" onclick="checkFIB('m1_fib1', ['entrepreneur'], 'm1_fib1_fb')">Submit</button>
+      </div>
+      <div class="feedback" id="m1_fib1_fb"></div>
+    </div>
+
+    <!-- M1-FIB2 -->
+    <div class="q-card">
+      <div class="q-num">Question 12 (Fill-in-the-Blank)</div>
+      <div class="q-text">A <span style="color:var(--primary); font-weight:700;">________</span> occurs when a business’s expenses exceed its revenues over a given period.</div>
+      <div>
+        <input type="text" class="fib-input" id="m1_fib2" placeholder="Type key term...">
+        <button class="fib-btn" onclick="checkFIB('m1_fib2', ['loss'], 'm1_fib2_fb')">Submit</button>
+      </div>
+      <div class="feedback" id="m1_fib2_fb"></div>
+    </div>
+
+    <!-- M1-FIB3 -->
+    <div class="q-card">
+      <div class="q-num">Question 13 (Fill-in-the-Blank)</div>
+      <div class="q-text">The process of setting up separate teams or units (such as marketing, HR, and accounting) to perform specialized tasks is called <span style="color:var(--primary); font-weight:700;">________</span>.</div>
+      <div>
+        <input type="text" class="fib-input" id="m1_fib3" placeholder="Type key term...">
+        <button class="fib-btn" onclick="checkFIB('m1_fib3', ['departmentalization'], 'm1_fib3_fb')">Submit</button>
+      </div>
+      <div class="feedback" id="m1_fib3_fb"></div>
+    </div>
+
+    <!-- M1-FIB4 -->
+    <div class="q-card">
+      <div class="q-num">Question 14 (Fill-in-the-Blank)</div>
+      <div class="q-text">In Osterwalder's value model, activities such as customer acquisition, logistics, and selling are classified under value <span style="color:var(--primary); font-weight:700;">________</span>.</div>
+      <div>
+        <input type="text" class="fib-input" id="m1_fib4" placeholder="Type key term...">
+        <button class="fib-btn" onclick="checkFIB('m1_fib4', ['delivery'], 'm1_fib4_fb')">Submit</button>
+      </div>
+      <div class="feedback" id="m1_fib4_fb"></div>
+    </div>
+
+    <!-- M1-FIB5 -->
+    <div class="q-card">
+      <div class="q-num">Question 15 (Fill-in-the-Blank)</div>
+      <div class="q-text">Enterprises contribute directly to public education, health, and transit because their <span style="color:var(--primary); font-weight:700;">________</span> fund national and local budgets.</div>
+      <div>
+        <input type="text" class="fib-input" id="m1_fib5" placeholder="Type key term...">
+        <button class="fib-btn" onclick="checkFIB('m1_fib5', ['taxes', 'tax'], 'm1_fib5_fb')">Submit</button>
+      </div>
+      <div class="feedback" id="m1_fib5_fb"></div>
+    </div>
+
+    <div class="action-bar">
+      <button class="action-btn" onclick="gradeMCQ('m1-quiz')">Check Module 1 MCQs</button>
+    </div>
+  </div>
+
+  <!-- MODULE 1 FLASHCARDS -->
+  <div id="m1-flash" class="content">
+    <div class="section-title">Module 1 Flashcards (5 items)</div>
+    <p>Click any card to flip between the concept definition and its official key term.</p>
+    <div class="flashcard-grid">
+      <div class="flashcard" onclick="flipCard(this)">
+        <div class="flashcard-inner">
+          <div class="flashcard-front">
+            <div class="flash-tag">Module 1 • Question 16</div>
+            <p>The total amount of monetary intake a business realizes over a given operational period from the sale of goods and services.</p>
+            <div class="flash-click">Click to flip</div>
+          </div>
+          <div class="flashcard-back">
+            <div class="flash-tag" style="color:#ffcccc;">Term</div>
+            <div class="flash-term">Revenue</div>
+            <div class="flash-click">Click to flip</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="flashcard" onclick="flipCard(this)">
+        <div class="flashcard-inner">
+          <div class="flashcard-front">
+            <div class="flash-tag">Module 1 • Question 17</div>
+            <p>Dividing organizational tasks into distinct, specialized jobs assigned to individuals based on skill and focus.</p>
+            <div class="flash-click">Click to flip</div>
+          </div>
+          <div class="flashcard-back">
+            <div class="flash-tag" style="color:#ffcccc;">Term</div>
+            <div class="flash-term">Job Specialization</div>
+            <div class="flash-click">Click to flip</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="flashcard" onclick="flipCard(this)">
+        <div class="flashcard-inner">
+          <div class="flashcard-front">
+            <div class="flash-tag">Module 1 • Question 18</div>
+            <p>A visual strategic template mapping out value propositions, customer segments, channels, resources, and revenue models.</p>
+            <div class="flash-click">Click to flip</div>
+          </div>
+          <div class="flashcard-back">
+            <div class="flash-tag" style="color:#ffcccc;">Term</div>
+            <div class="flash-term">Business Model Canvas (BMC)</div>
+            <div class="flash-click">Click to flip</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="flashcard" onclick="flipCard(this)">
+        <div class="flashcard-inner">
+          <div class="flashcard-front">
+            <div class="flash-tag">Module 1 • Question 19</div>
+            <p>Internal controllable elements—such as corporate culture, leadership styles, and employee behavior—that dictate operational tone.</p>
+            <div class="flash-click">Click to flip</div>
+          </div>
+          <div class="flashcard-back">
+            <div class="flash-tag" style="color:#ffcccc;">Term</div>
+            <div class="flash-term">Internal Environment</div>
+            <div class="flash-click">Click to flip</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="flashcard" onclick="flipCard(this)">
+        <div class="flashcard-inner">
+          <div class="flashcard-front">
+            <div class="flash-tag">Module 1 • Question 20</div>
+            <p>The tripartite set of core business actors balancing capital investment, operational execution, and commercial demand.</p>
+            <div class="flash-click">Click to flip</div>
+          </div>
+          <div class="flashcard-back">
+            <div class="flash-tag" style="color:#ffcccc;">Term</div>
+            <div class="flash-term">Owners, Employees, Customers</div>
+            <div class="flash-click">Click to flip</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODULE 2 QUIZ -->
+  <div id="m2-quiz" class="content">
+    <div class="section-title">Module 2: Multiple Choice Questions (10 items)</div>
+
+    <!-- M2-Q1 -->
+    <div class="q-card" data-ans="B">
+      <div class="q-num">Question 21 (Module 2)</div>
+      <div class="q-text">Which three essential characteristics do all organizations share according to Gibson et al. and Pride?</div>
+      <div class="options">
+        <label class="option-label"><input type="radio" name="m2_1" value="A"> A) High profits, bureaucratic hierarchies, and shareholder voting</label>
+        <label class="option-label"><input type="radio" name="m2_1" value="B"> B) Distinct purpose (goals), people, and deliberate structure</label>
+        <label class="option-label"><input type="radio" name="m2_1" value="C"> C) Open systems, competitive markets, and departmental silos</label>
+        <label class="option-label"><input type="radio" name="m2_1" value="D"> D) Mission statement, factory equipment, and legal incorporation</label>
+      </div>
+      <div class="feedback"></div>
+    </div>
+
+    <!-- M2-Q2 -->
+    <div class="q-card" data-ans="D">
+      <div class="q-num">Question 22 (Module 2)</div>
+      <div class="q-text">Which classical management principle dictates that an employee should receive orders from and report to only one direct superior?</div>
+      <div class="options">
+        <label class="option-label"><input type="radio" name="m2_2" value="A"> A) Principle of Scalar Chain</label>
+        <label class="option-label"><input type="radio" name="m2_2" value="B"> B) Principle of Span of Control</label>
+        <label class="option-label"><input type="radio" name="m2_2" value="C"> C) Principle of Coordination</label>
+        <label class="option-label"><input type="radio" name="m2_2" value="D"> D) Principle of Unity of Command</label>
+      </div>
+      <div class="feedback"></div>
+    </div>
+
+    <!-- M2-Q3 -->
+    <div class="q-card" data-ans="C">
+      <div class="q-num">Question 23 (Module 2)</div>
+      <div class="q-text">How did Max Weber’s Bureaucratic Theory characterize ideal organizational design?</div>
+      <div class="options">
+        <label class="option-label"><input type="radio" name="m2_3" value="A"> A) Fluid, horizontal networks with undefined responsibilities</label>
+        <label class="option-label"><input type="radio" name="m2_3" value="B"> B) Complete employee self-governance without documented procedures</label>
+        <label class="option-label"><input type="radio" name="m2_3" value="C"> C) Pyramidal hierarchies, standardized written rules, clear authority, and merit-based advancement</label>
+        <label class="option-label"><input type="radio" name="m2_3" value="D"> D) Charismatic leadership models operating without formal records</label>
+      </div>
+      <div class="feedback"></div>
+    </div>
+
+    <!-- M2-Q4 -->
+    <div class="q-card" data-ans="D">
+      <div class="q-num">Question 24 (Module 2)</div>
+      <div class="q-text">In the Organizational Life Cycle (OLC) model, which stage is marked by informal systems, founder-dominated duties, and resistance to red tape?</div>
+      <div class="options">
+        <label class="option-label"><input type="radio" name="m2_4" value="A"> A) Maturity</label>
+        <label class="option-label"><input type="radio" name="m2_4" value="B"> B) Growth</label>
+        <label class="option-label"><input type="radio" name="m2_4" value="C"> C) Decline</label>
+        <label class="option-label"><input type="radio" name="m2_4" value="D"> D) Birth / Rebirth</label>
+      </div>
+      <div class="feedback"></div>
+    </div>
+
+    <!-- M2-Q5 -->
+    <div class="q-card" data-ans="C">
+      <div class="q-num">Question 25 (Module 2)</div>
+      <div class="q-text">Ludwig von Bertalanffy’s General Systems Theory defines "non-summativity" (holism) as which dynamic?</div>
+      <div class="options">
+        <label class="option-label"><input type="radio" name="m2_5" value="A"> A) Complete insulation of sub-units from external market forces</label>
+        <label class="option-label"><input type="radio" name="m2_5" value="B"> B) Inevitable decline of structural efficiency over time</label>
+        <label class="option-label"><input type="radio" name="m2_5" value="C"> C) An emergent state where the whole system exhibits traits beyond the sum of its individual parts</label>
+        <label class="option-label"><input type="radio" name="m2_5" value="D"> D) Equal numerical proportion between raw materials and finished goods</label>
+      </div>
+      <div class="feedback"></div>
+    </div>
+
+    <!-- M2-Q6 -->
+    <div class="q-card" data-ans="B">
+      <div class="q-num">Question 26 (Module 2)</div>
+      <div class="q-text">What are the Four Fundamental Design Decisions an executive must make when structuring an organization?</div>
+      <div class="options">
+        <label class="option-label"><input type="radio" name="m2_6" value="A"> A) Financing, hiring, firing, and accounting</label>
+        <label class="option-label"><input type="radio" name="m2_6" value="B"> B) Division of labor, departmentalization, span of control, and delegation of authority</label>
+        <label class="option-label"><input type="radio" name="m2_6" value="C"> C) Inputs, throughputs, outputs, and feedback loops</label>
+        <label class="option-label"><input type="radio" name="m2_6" value="D"> D) Cost leadership, differentiation, focus, and vertical integration</label>
+      </div>
+      <div class="feedback"></div>
+    </div>
+
+    <!-- M2-Q7 -->
+    <div class="q-card" data-ans="A">
+      <div class="q-num">Question 27 (Module 2)</div>
+      <div class="q-text">Which of Urwick’s 14 Principles establishes that the responsibility of a subordinate to their superior is absolute and cannot be abdicated by delegating?</div>
+      <div class="options">
+        <label class="option-label"><input type="radio" name="m2_7" value="A"> A) Principle of Absoluteness of Responsibility</label>
+        <label class="option-label"><input type="radio" name="m2_7" value="B"> B) Principle of Delegation</label>
+        <label class="option-label"><input type="radio" name="m2_7" value="C"> C) Principle of the Scalar Chain</label>
+        <label class="option-label"><input type="radio" name="m2_7" value="D"> D) Principle of Exception</label>
+      </div>
+      <div class="feedback"></div>
+    </div>
+
+    <!-- M2-Q8 -->
+    <div class="q-card" data-ans="C">
+      <div class="q-num">Question 28 (Module 2)</div>
+      <div class="q-text">In an open systems view of an organization, what do factories, logistics processes, and employee assemblies represent?</div>
+      <div class="options">
+        <label class="option-label"><input type="radio" name="m2_8" value="A"> A) System Inputs</label>
+        <label class="option-label"><input type="radio" name="m2_8" value="B"> B) System Outputs</label>
+        <label class="option-label"><input type="radio" name="m2_8" value="C"> C) Throughputs / Transformation Processes</label>
+        <label class="option-label"><input type="radio" name="m2_8" value="D"> D) External Boundary Spanners</label>
+      </div>
+      <div class="feedback"></div>
+    </div>
+
+    <!-- M2-Q9 -->
+    <div class="q-card" data-ans="D">
+      <div class="q-num">Question 29 (Module 2)</div>
+      <div class="q-text">What primary crisis or pitfall typically threatens organizations in the Maturity stage of the Life Cycle?</div>
+      <div class="options">
+        <label class="option-label"><input type="radio" name="m2_9" value="A"> A) Lack of working capital to fund daily operations</label>
+        <label class="option-label"><input type="radio" name="m2_9" value="B"> B) Total absence of operational hierarchy and written procedures</label>
+        <label class="option-label"><input type="radio" name="m2_9" value="C"> C) Founder exhaustion due to doing every task manually</label>
+        <label class="option-label"><input type="radio" name="m2_9" value="D"> D) Bureaucratic stagnation, red tape, and institutional groupthink</label>
+      </div>
+      <div class="feedback"></div>
+    </div>
+
+    <!-- M2-Q10 -->
+    <div class="q-card" data-ans="B">
+      <div class="q-num">Question 30 (Module 2)</div>
+      <div class="q-text">Which classical management pioneer formulated the 14 Administrative Principles including Esprit de Corps and the Scalar Chain in 1919?</div>
+      <div class="options">
+        <label class="option-label"><input type="radio" name="m2_10" value="A"> A) Max Weber</label>
+        <label class="option-label"><input type="radio" name="m2_10" value="B"> B) Henri Fayol</label>
+        <label class="option-label"><input type="radio" name="m2_10" value="C"> C) Lyndall Urwick</label>
+        <label class="option-label"><input type="radio" name="m2_10" value="D"> D) Ludwig von Bertalanffy</label>
+      </div>
+      <div class="feedback"></div>
+    </div>
+
+    <div class="section-title" style="margin-top: 24px;">Module 2: Fill-in-the-Blank Questions (5 items)</div>
+    
+    <!-- M2-FIB1 -->
+    <div class="q-card">
+      <div class="q-num">Question 31 (Fill-in-the-Blank)</div>
+      <div class="q-text">Urwick's principle of the <span style="color:var(--primary); font-weight:700;">________</span> states that every enterprise and part thereof must be an expression of the core purpose of the undertaking.</div>
+      <div>
+        <input type="text" class="fib-input" id="m2_fib1" placeholder="Type key term...">
+        <button class="fib-btn" onclick="checkFIB('m2_fib1', ['objective'], 'm2_fib1_fb')">Submit</button>
+      </div>
+      <div class="feedback" id="m2_fib1_fb"></div>
+    </div>
+
+    <!-- M2-FIB2 -->
+    <div class="q-card">
+      <div class="q-num">Question 32 (Fill-in-the-Blank)</div>
+      <div class="q-text">The unbroken line of authority and responsibility extending from the highest executive to the lowest operative is termed the <span style="color:var(--primary); font-weight:700;">________</span> chain.</div>
+      <div>
+        <input type="text" class="fib-input" id="m2_fib2" placeholder="Type key term...">
+        <button class="fib-btn" onclick="checkFIB('m2_fib2', ['scalar'], 'm2_fib2_fb')">Submit</button>
+      </div>
+      <div class="feedback" id="m2_fib2_fb"></div>
+    </div>
+
+    <!-- M2-FIB3 -->
+    <div class="q-card">
+      <div class="q-num">Question 33 (Fill-in-the-Blank)</div>
+      <div class="q-text">In General Systems Theory, the dynamic internal self-regulation that maintains stability amid external changes is called <span style="color:var(--primary); font-weight:700;">________</span>.</div>
+      <div>
+        <input type="text" class="fib-input" id="m2_fib3" placeholder="Type key term...">
+        <button class="fib-btn" onclick="checkFIB('m2_fib3', ['homeostasis'], 'm2_fib3_fb')">Submit</button>
+      </div>
+      <div class="feedback" id="m2_fib3_fb"></div>
+    </div>
+
+    <!-- M2-FIB4 -->
+    <div class="q-card">
+      <div class="q-num">Question 34 (Fill-in-the-Blank)</div>
+      <div class="q-text">The four core stages of an open system model are inputs, <span style="color:var(--primary); font-weight:700;">________</span>, outputs, and feedback loops.</div>
+      <div>
+        <input type="text" class="fib-input" id="m2_fib4" placeholder="Type key term...">
+        <button class="fib-btn" onclick="checkFIB('m2_fib4', ['throughputs', 'throughput', 'processes', 'processing'], 'm2_fib4_fb')">Submit</button>
+      </div>
+      <div class="feedback" id="m2_fib4_fb"></div>
+    </div>
+
+    <!-- M2-FIB5 -->
+    <div class="q-card">
+      <div class="q-num">Question 35 (Fill-in-the-Blank)</div>
+      <div class="q-text">The OLC phase where sales stabilize, bureaucracy takes firm hold, and firms risk obsolescence is the <span style="color:var(--primary); font-weight:700;">________</span> stage.</div>
+      <div>
+        <input type="text" class="fib-input" id="m2_fib5" placeholder="Type key term...">
+        <button class="fib-btn" onclick="checkFIB('m2_fib5', ['maturity'], 'm2_fib5_fb')">Submit</button>
+      </div>
+      <div class="feedback" id="m2_fib5_fb"></div>
+    </div>
+
+    <div class="action-bar">
+      <button class="action-btn" onclick="gradeMCQ('m2-quiz')">Check Module 2 MCQs</button>
+    </div>
+  </div>
+
+  <!-- MODULE 2 FLASHCARDS -->
+  <div id="m2-flash" class="content">
+    <div class="section-title">Module 2 Flashcards (5 items)</div>
+    <p>Click any card to flip between the concept definition and its official key term.</p>
+    <div class="flashcard-grid">
+      <div class="flashcard" onclick="flipCard(this)">
+        <div class="flashcard-inner">
+          <div class="flashcard-front">
+            <div class="flash-tag">Module 2 • Question 36</div>
+            <p>The principle governing the optimal number of subordinates a manager can effectively supervise given physical and mental limits.</p>
+            <div class="flash-click">Click to flip</div>
+          </div>
+          <div class="flashcard-back">
+            <div class="flash-tag" style="color:#ffcccc;">Term</div>
+            <div class="flash-term">Span of Control</div>
+            <div class="flash-click">Click to flip</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="flashcard" onclick="flipCard(this)">
+        <div class="flashcard-inner">
+          <div class="flashcard-front">
+            <div class="flash-tag">Module 2 • Question 37</div>
+            <p>The principle asserting that executive accountability cannot be surrendered when delegating operational work to subordinates.</p>
+            <div class="flash-click">Click to flip</div>
+          </div>
+          <div class="flashcard-back">
+            <div class="flash-tag" style="color:#ffcccc;">Term</div>
+            <div class="flash-term">Absoluteness of Responsibility</div>
+            <div class="flash-click">Click to flip</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="flashcard" onclick="flipCard(this)">
+        <div class="flashcard-inner">
+          <div class="flashcard-front">
+            <div class="flash-tag">Module 2 • Question 38</div>
+            <p>Economic efficiencies achieved when high production volume drives down the per-unit fixed costs of manufactured goods.</p>
+            <div class="flash-click">Click to flip</div>
+          </div>
+          <div class="flashcard-back">
+            <div class="flash-tag" style="color:#ffcccc;">Term</div>
+            <div class="flash-term">Economies of Scale</div>
+            <div class="flash-click">Click to flip</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="flashcard" onclick="flipCard(this)">
+        <div class="flashcard-inner">
+          <div class="flashcard-front">
+            <div class="flash-tag">Module 2 • Question 39</div>
+            <p>An organized complex of interdependent parts that dynamically exchanges energy, material, and information with external surroundings.</p>
+            <div class="flash-click">Click to flip</div>
+          </div>
+          <div class="flashcard-back">
+            <div class="flash-tag" style="color:#ffcccc;">Term</div>
+            <div class="flash-term">Open System</div>
+            <div class="flash-click">Click to flip</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="flashcard" onclick="flipCard(this)">
+        <div class="flashcard-inner">
+          <div class="flashcard-front">
+            <div class="flash-tag">Module 2 • Question 40</div>
+            <p>Fayol's principle emphasizing that mutual respect, morale, and camaraderie must be intentionally fostered across an organization.</p>
+            <div class="flash-click">Click to flip</div>
+          </div>
+          <div class="flashcard-back">
+            <div class="flash-tag" style="color:#ffcccc;">Term</div>
+            <div class="flash-term">Esprit de Corps</div>
+            <div class="flash-click">Click to flip</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODULE 3 QUIZ -->
+  <div id="m3-quiz" class="content">
+    <div class="section-title">Module 3: Multiple Choice Questions (10 items)</div>
+
+    <!-- M3-Q1 -->
+    <div class="q-card" data-ans="C">
+      <div class="q-num">Question 41 (Module 3)</div>
+      <div class="q-text">According to Ricky Griffin’s environmental framework, which entities constitute the "Task Environment"?</div>
+      <div class="options">
+        <label class="option-label"><input type="radio" name="m3_1" value="A"> A) Broad national variables like inflation, tax codes, and population aging</label>
+        <label class="option-label"><input type="radio" name="m3_1" value="B"> B) Strictly internal factors such as company culture and office layout</label>
+        <label class="option-label"><input type="radio" name="m3_1" value="C"> C) Direct operational actors: competitors, customers, suppliers, regulators, and strategic partners</label>
+        <label class="option-label"><input type="radio" name="m3_1" value="D"> D) Global treaties and planetary climate shifts exclusively</label>
+      </div>
+      <div class="feedback"></div>
+    </div>
+
+    <!-- M3-Q2 -->
+    <div class="q-card" data-ans="C">
+      <div class="q-num">Question 42 (Module 3)</div>
+      <div class="q-text">Which diagnostic model disaggregates internal activities into discrete value-generating links to pinpoint competitive advantage?</div>
+      <div class="options">
+        <label class="option-label"><input type="radio" name="m3_2" value="A"> A) PESTLE Analysis</label>
+        <label class="option-label"><input type="radio" name="m3_2" value="B"> B) Porter's Five Forces Model</label>
+        <label class="option-label"><input type="radio" name="m3_2" value="C"> C) Porter's Value Chain Analysis</label>
+        <label class="option-label"><input type="radio" name="m3_2" value="D"> D) Porter's Four Corner Analysis</label>
+      </div>
+      <div class="feedback"></div>
+    </div>
+
+    <!-- M3-Q3 -->
+    <div class="q-card" data-ans="C">
+      <div class="q-num">Question 43 (Module 3)</div>
+      <div class="q-text">Under the PESTEL framework, shifting consumer values toward plant-based wellness and fitness fall under which dimension?</div>
+      <div class="options">
+        <label class="option-label"><input type="radio" name="m3_3" value="A"> A) Political-Legal</label>
+        <label class="option-label"><input type="radio" name="m3_3" value="B"> B) Economic</label>
+        <label class="option-label"><input type="radio" name="m3_3" value="C"> C) Sociocultural</label>
+        <label class="option-label"><input type="radio" name="m3_3" value="D"> D) Technological</label>
+      </div>
+      <div class="feedback"></div>
+    </div>
+
+    <!-- M3-Q4 -->
+    <div class="q-card" data-ans="D">
+      <div class="q-num">Question 44 (Module 3)</div>
+      <div class="q-text">In the McDonald's task environment case, wholesale meat providers, packaging vendors, and commercial lenders represent which group?</div>
+      <div class="options">
+        <label class="option-label"><input type="radio" name="m3_4" value="A"> A) Regulatory Agencies</label>
+        <label class="option-label"><input type="radio" name="m3_4" value="B"> B) Strategic Allies</label>
+        <label class="option-label"><input type="radio" name="m3_4" value="C"> C) Substitute Competitors</label>
+        <label class="option-label"><input type="radio" name="m3_4" value="D"> D) Suppliers</label>
+      </div>
+      <div class="feedback"></div>
+    </div>
+
+    <!-- M3-Q5 -->
+    <div class="q-card" data-ans="B">
+      <div class="q-num">Question 45 (Module 3)</div>
+      <div class="q-text">How did Amazon strategically neutralize competitive threats from third-party online merchants in its Marketplace case?</div>
+      <div class="options">
+        <label class="option-label"><input type="radio" name="m3_5" value="A"> A) By lobbying regulators to legally ban small online web storefronts</label>
+        <label class="option-label"><input type="radio" name="m3_5" value="B"> B) By onboarding rivals onto its own platform to earn referral, shipping, and cloud fees</label>
+        <label class="option-label"><input type="radio" name="m3_5" value="C"> C) By ceasing all first-party retail operations to focus exclusively on AWS</label>
+        <label class="option-label"><input type="radio" name="m3_5" value="D"> D) By lowering product prices below unit cost across all retail categories indefinitely</label>
+      </div>
+      <div class="feedback"></div>
+    </div>
+
+    <!-- M3-Q6 -->
+    <div class="q-card" data-ans="A">
+      <div class="q-num">Question 46 (Module 3)</div>
+      <div class="q-text">Which analytical model focuses on competitor future goals, assumptions, capabilities, and current strategy to predict market moves?</div>
+      <div class="options">
+        <label class="option-label"><input type="radio" name="m3_6" value="A"> A) Porter's Four Corner Analysis</label>
+        <label class="option-label"><input type="radio" name="m3_6" value="B"> B) PESTLE Analysis</label>
+        <label class="option-label"><input type="radio" name="m3_6" value="C"> C) Bertalanffy Closed-Loop Analysis</label>
+        <label class="option-label"><input type="radio" name="m3_6" value="D"> D) Urwick Matrix Model</label>
+      </div>
+      <div class="feedback"></div>
+    </div>
+
+    <!-- M3-Q7 -->
+    <div class="q-card" data-ans="C">
+      <div class="q-num">Question 47 (Module 3)</div>
+      <div class="q-text">How do regulatory agencies differ fundamentally from interest groups in the task environment?</div>
+      <div class="options">
+        <label class="option-label"><input type="radio" name="m3_7" value="A"> A) Interest groups can enforce statutory fines; agencies only run ad campaigns.</label>
+        <label class="option-label"><input type="radio" name="m3_7" value="B"> B) Regulatory agencies operate inside firms; interest groups operate internationally.</label>
+        <label class="option-label"><input type="radio" name="m3_7" value="C"> C) Regulatory agencies have legal enforcement power; interest groups use public advocacy and lobbying.</label>
+        <label class="option-label"><input type="radio" name="m3_7" value="D"> D) Regulatory agencies represent customers; interest groups represent suppliers.</label>
+      </div>
+      <div class="feedback"></div>
+    </div>
+
+    <!-- M3-Q8 -->
+    <div class="q-card" data-ans="B">
+      <div class="q-num">Question 48 (Module 3)</div>
+      <div class="q-text">What was the primary economic paradox faced by McDonald's during periods of low inflation, high unemployment, and slow growth?</div>
+      <div class="options">
+        <label class="option-label"><input type="radio" name="m3_8" value="A"> A) Skyrocketing wage demands combined with runaway customer volume</label>
+        <label class="option-label"><input type="radio" name="m3_8" value="B"> B) Stable labor costs and increased diner traffic, but severe price resistance against menu increases</label>
+        <label class="option-label"><input type="radio" name="m3_8" value="C"> C) Extreme supply chain shortages alongside massive luxury dining expansion</label>
+        <label class="option-label"><input type="radio" name="m3_8" value="D"> D) High loan interest rates coupled with plummeting local utility charges</label>
+      </div>
+      <div class="feedback"></div>
+    </div>
+
+    <!-- M3-Q9 -->
+    <div class="q-card" data-ans="D">
+      <div class="q-num">Question 49 (Module 3)</div>
+      <div class="q-text">In response to soda bans and public health scrutiny over obesity, how did Coca-Cola and PepsiCo adapt their product strategies?</div>
+      <div class="options">
+        <label class="option-label"><input type="radio" name="m3_9" value="A"> A) By halting production of all carbonated beverages entirely</label>
+        <label class="option-label"><input type="radio" name="m3_9" value="B"> B) By litigating against retail customers and grocery chains</label>
+        <label class="option-label"><input type="radio" name="m3_9" value="C"> C) By increasing bottle sizes and lowering prices across legacy sodas</label>
+        <label class="option-label"><input type="radio" name="m3_9" value="D"> D) By reformulating low-calorie stevia drinks and financing active-lifestyle consumer initiatives</label>
+      </div>
+      <div class="feedback"></div>
+    </div>
+
+    <!-- M3-Q10 -->
+    <div class="q-card" data-ans="A">
+      <div class="q-num">Question 50 (Module 3)</div>
+      <div class="q-text">Why did corporate executives from companies like Apple, Nike, and Gap petition the U.S. government to remain in the Paris Climate Agreement?</div>
+      <div class="options">
+        <label class="option-label"><input type="radio" name="m3_10" value="A"> A) They argued that clean-energy innovation enhances commercial competitiveness and unlocks new markets.</label>
+        <label class="option-label"><input type="radio" name="m3_10" value="B"> B) They sought to shut down overseas factories permanently.</label>
+        <label class="option-label"><input type="radio" name="m3_10" value="C"> C) They intended to avoid paying federal corporate taxes.</label>
+        <label class="option-label"><input type="radio" name="m3_10" value="D"> D) They wanted the government to nationalize manufacturing plants.</label>
+      </div>
+      <div class="feedback"></div>
+    </div>
+
+    <div class="section-title" style="margin-top: 24px;">Module 3: Fill-in-the-Blank Questions (5 items)</div>
+    
+    <!-- M3-FIB1 -->
+    <div class="q-card">
+      <div class="q-num">Question 51 (Fill-in-the-Blank)</div>
+      <div class="q-text">An enterprise's broad societal environment, comprising political, economic, and technological forces, is the <span style="color:var(--primary); font-weight:700;">________</span> environment.</div>
+      <div>
+        <input type="text" class="fib-input" id="m3_fib1" placeholder="Type key term...">
+        <button class="fib-btn" onclick="checkFIB('m3_fib1', ['macro', 'macro-environment', 'general'], 'm3_fib1_fb')">Submit</button>
+      </div>
+      <div class="feedback" id="m3_fib1_fb"></div>
+    </div>
+
+    <!-- M3-FIB2 -->
+    <div class="q-card">
+      <div class="q-num">Question 52 (Fill-in-the-Blank)</div>
+      <div class="q-text">Competition occurs not just between direct rivals, but also through alternative goods meeting similar needs, known as <span style="color:var(--primary); font-weight:700;">________</span> products.</div>
+      <div>
+        <input type="text" class="fib-input" id="m3_fib2" placeholder="Type key term...">
+        <button class="fib-btn" onclick="checkFIB('m3_fib2', ['substitute', 'substitutes'], 'm3_fib2_fb')">Submit</button>
+      </div>
+      <div class="feedback" id="m3_fib2_fb"></div>
+    </div>
+
+    <!-- M3-FIB3 -->
+    <div class="q-card">
+      <div class="q-num">Question 53 (Fill-in-the-Blank)</div>
+      <div class="q-text">Official government units established to enforce laws and ensure fair market practices are termed regulatory <span style="color:var(--primary); font-weight:700;">________</span>.</div>
+      <div>
+        <input type="text" class="fib-input" id="m3_fib3" placeholder="Type key term...">
+        <button class="fib-btn" onclick="checkFIB('m3_fib3', ['agencies', 'agency'], 'm3_fib3_fb')">Submit</button>
+      </div>
+      <div class="feedback" id="m3_fib3_fb"></div>
+    </div>
+
+    <!-- M3-FIB4 -->
+    <div class="q-card">
+      <div class="q-num">Question 54 (Fill-in-the-Blank)</div>
+      <div class="q-text">The <span style="color:var(--primary); font-weight:700;">________</span> dimension of the general environment comprises the equipment and methods used to transform inputs into commercial goods.</div>
+      <div>
+        <input type="text" class="fib-input" id="m3_fib4" placeholder="Type key term...">
+        <button class="fib-btn" onclick="checkFIB('m3_fib4', ['technological', 'technology'], 'm3_fib4_fb')">Submit</button>
+      </div>
+      <div class="feedback" id="m3_fib4_fb"></div>
+    </div>
+
+    <!-- M3-FIB5 -->
+    <div class="q-card">
+      <div class="q-num">Question 55 (Fill-in-the-Blank)</div>
+      <div class="q-text">Porter's <span style="color:var(--primary); font-weight:700;">________</span> Forces Model assesses industry profitability, competitive rivalry, and entrant threats across the task environment.</div>
+      <div>
+        <input type="text" class="fib-input" id="m3_fib5" placeholder="Type key term...">
+        <button class="fib-btn" onclick="checkFIB('m3_fib5', ['five', '5'], 'm3_fib5_fb')">Submit</button>
+      </div>
+      <div class="feedback" id="m3_fib5_fb"></div>
+    </div>
+
+    <div class="action-bar">
+      <button class="action-btn" onclick="gradeMCQ('m3-quiz')">Check Module 3 MCQs</button>
+    </div>
+  </div>
+
+  <!-- MODULE 3 FLASHCARDS -->
+  <div id="m3-flash" class="content">
+    <div class="section-title">Module 3 Flashcards (5 items)</div>
+    <p>Click any card to flip between the concept definition and its official key term.</p>
+    <div class="flashcard-grid">
+      <div class="flashcard" onclick="flipCard(this)">
+        <div class="flashcard-inner">
+          <div class="flashcard-front">
+            <div class="flash-tag">Module 3 • Question 56</div>
+            <p>Task environment groups that exert influence over corporate policies via media scrutiny and protests without holding statutory authority.</p>
+            <div class="flash-click">Click to flip</div>
+          </div>
+          <div class="flashcard-back">
+            <div class="flash-tag" style="color:#ffcccc;">Term</div>
+            <div class="flash-term">Interest Groups</div>
+            <div class="flash-click">Click to flip</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="flashcard" onclick="flipCard(this)">
+        <div class="flashcard-inner">
+          <div class="flashcard-front">
+            <div class="flash-tag">Module 3 • Question 57</div>
+            <p>Two or more enterprises teaming up via joint ventures or contractual alliances to co-develop products or expand distribution.</p>
+            <div class="flash-click">Click to flip</div>
+          </div>
+          <div class="flashcard-back">
+            <div class="flash-tag" style="color:#ffcccc;">Term</div>
+            <div class="flash-term">Strategic Partners / Allies</div>
+            <div class="flash-click">Click to flip</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="flashcard" onclick="flipCard(this)">
+        <div class="flashcard-inner">
+          <div class="flashcard-front">
+            <div class="flash-tag">Module 3 • Question 58</div>
+            <p>A strategic framework that decodes a competitor's moves by scrutinizing their drivers, assumptions, strategy, and capabilities.</p>
+            <div class="flash-click">Click to flip</div>
+          </div>
+          <div class="flashcard-back">
+            <div class="flash-tag" style="color:#ffcccc;">Term</div>
+            <div class="flash-term">Porter's Four Corner Analysis</div>
+            <div class="flash-click">Click to flip</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="flashcard" onclick="flipCard(this)">
+        <div class="flashcard-inner">
+          <div class="flashcard-front">
+            <div class="flash-tag">Module 3 • Question 59</div>
+            <p>The macroeconomic condition where cheap labor and high fast-food traffic coincide with intense resistance to menu price hikes.</p>
+            <div class="flash-click">Click to flip</div>
+          </div>
+          <div class="flashcard-back">
+            <div class="flash-tag" style="color:#ffcccc;">Term</div>
+            <div class="flash-term">Economic Paradox</div>
+            <div class="flash-click">Click to flip</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="flashcard" onclick="flipCard(this)">
+        <div class="flashcard-inner">
+          <div class="flashcard-front">
+            <div class="flash-tag">Module 3 • Question 60</div>
+            <p>The general environmental dimension analyzing carbon regulations, resource depletion, clean tech, and global climate accords.</p>
+            <div class="flash-click">Click to flip</div>
+          </div>
+          <div class="flashcard-back">
+            <div class="flash-tag" style="color:#ffcccc;">Term</div>
+            <div class="flash-term">Ecological / Natural Dimension</div>
+            <div class="flash-click">Click to flip</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  function switchTab(tabId) {
+    document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+    document.querySelectorAll('.content').forEach(c => c.classList.remove('active'));
+    
+    event.target.classList.add('active');
+    document.getElementById(tabId).classList.add('active');
+  }
+
+  function flipCard(card) {
+    card.classList.toggle('flipped');
+  }
+
+  function gradeMCQ(containerId) {
+    const container = document.getElementById(containerId);
+    const cards = container.querySelectorAll('.q-card[data-ans]');
+    let correctCount = 0;
+    
+    cards.forEach(card => {
+      const expected = card.getAttribute('data-ans');
+      const selected = card.querySelector('input[type="radio"]:checked');
+      const fb = card.querySelector('.feedback');
+      
+      fb.className = 'feedback show';
+      if (selected && selected.value === expected) {
+        fb.classList.add('correct');
+        fb.textContent = '✓ Correct!';
+        correctCount++;
+      } else {
+        fb.classList.add('incorrect');
+        fb.textContent = `✗ Incorrect. Correct answer is option ${expected}.`;
+      }
+    });
+
+    alert(`Quiz Graded: You scored ${correctCount} out of ${cards.length} correct on this section.`);
+  }
+
+  function checkFIB(inputId, validAnswers, feedbackId) {
+    const input = document.getElementById(inputId);
+    const fb = document.getElementById(feedbackId);
+    const val = input.value.trim().toLowerCase();
+    
+    fb.className = 'feedback show';
+    const isCorrect = validAnswers.some(ans => ans.toLowerCase() === val);
+    
+    if (isCorrect) {
+      fb.classList.add('correct');
+      fb.textContent = '✓ Correct!';
+    } else {
+      fb.classList.add('incorrect');
+      fb.textContent = `✗ Incorrect. Acceptable answer: "${validAnswers[0]}".`;
+    }
+  }
+</script>
+</body>
+</html>
